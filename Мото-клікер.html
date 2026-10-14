@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мото-клікер</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f1efe9;
+    --surface: #ffffff;
+    --ink: #1c1d22;
+    --muted: #666a73;
+    --line: #d8d5cc;
+    --accent: #e8a900;
+    --accent-ink: #1c1d22;
+    --tail: #d62f2f;
+    --road: #3a3d46;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #17181d;
+      --surface: #23252c;
+      --ink: #f2f0ea;
+      --muted: #9a9ea8;
+      --line: #34373f;
+      --accent: #ffc21a;
+      --accent-ink: #1c1d22;
+      --tail: #ff5a4d;
+      --road: #0f1013;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #17181d; --surface: #23252c; --ink: #f2f0ea; --muted: #9a9ea8;
+    --line: #34373f; --accent: #ffc21a; --accent-ink: #1c1d22; --tail: #ff5a4d; --road: #0f1013;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    user-select: none; -webkit-user-select: none;
+  }
+  main { width: 100%; max-width: 480px; padding: 20px 18px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+  .score { text-align: center; }
+  .score .num { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .score .label { color: var(--muted); font-size: 15px; margin-top: 6px; }
+  .rates { display: flex; justify-content: center; gap: 18px; color: var(--muted); font-size: 14px; margin-top: 10px; }
+  .rates b { color: var(--ink); font-weight: 600; }
+
+  .stage { position: relative; display: grid; place-items: center; padding: 8px 0 0; }
+  .road {
+    position: absolute; left: -18px; right: -18px; bottom: 6px; height: 54px;
+    background: var(--road);
+  }
+  .road::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0 28px, transparent 28px 56px);
+    transform: translateY(-50%);
+  }
+  .moto {
+    position: relative; z-index: 1; width: min(78vw, 320px); aspect-ratio: 1.45;
+    border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation;
+    transition: transform .08s ease-out;
+  }
+  .moto:active, .moto.hit { transform: scale(.94) rotate(-2deg); }
+  .moto:focus-visible { outline: 3px solid var(--accent); outline-offset: 6px; border-radius: 16px; }
+  .moto svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .wheel { transform-box: fill-box; transform-origin: center; }
+  .moto.hit .wheel { animation: spin .35s linear; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pop {
+    position: fixed; z-index: 5; pointer-events: none; font-weight: 700; font-size: 22px;
+    color: var(--accent); text-shadow: 0 1px 0 var(--road);
+    animation: rise .8s ease-out forwards;
+  }
+  @keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-70px); } }
+
+  .shop { display: flex; flex-direction: column; gap: 10px; }
+  .shop h2 { font-size: 17px; margin: 4px 0 0; font-weight: 600; }
+  .item {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px; font: inherit; cursor: pointer; touch-action: manipulation;
+  }
+  .item:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .item[disabled] { opacity: .5; cursor: not-allowed; }
+  .item .ico { font-size: 26px; width: 34px; text-align: center; }
+  .item .txt { flex: 1; min-width: 0; }
+  .item .name { font-weight: 600; font-size: 16px; }
+  .item .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .item .cost { font-weight: 700; font-variant-numeric: tabular-nums; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 6px 12px; font-size: 14px; white-space: nowrap; }
+  .item[disabled] .cost { background: var(--line); color: var(--muted); }
+  .item .lvl { color: var(--muted); font-size: 12px; }
+
+  .reset { align-self: center; background: none; border: 0; color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline; padding: 8px; cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .moto, .moto.hit .wheel, .pop { animation: none; transition: none; }
+    .pop { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section class="score" aria-live="polite">
+    <div class="num" id="score">0</div>
+    <div class="label">мото-токенів</div>
+    <div class="rates">
+      <span>за тап: <b id="perTap">1</b></span>
+      <span>за секунду: <b id="perSec">0</b></span>
+    </div>
+  </section>
+
+  <section class="stage">
+    <div class="road" aria-hidden="true"></div>
+    <button class="moto" id="moto" aria-label="Тапни, щоб заробити токени">
+      <svg viewBox="0 0 320 220" aria-hidden="true">
+        <g class="wheel" id="wheelBack">
+          <circle cx="70" cy="150" r="46" fill="none" stroke="var(--ink)" stroke-width="12"/>
+          <circle cx="70" cy="150" r="8" fill="var(--ink)"/>
+          <path d="M70 108V192M28 150H112M40 120L100 180M100 120L40 180" stroke="var(--muted)" stroke-width="3" fill="none"/>
+        </g>
+        <g class="wheel" id="wheelFront">
+          <circle cx="250" cy="150" r="46" fill="none" stroke="var(--ink)" stroke-width="12"/>
+          <circle cx="250" cy="150" r="8" fill="var(--ink)"/>
+          <path d="M250 108V192M208 150H292M220 120L280 180M280 120L220 180" stroke="var(--muted)" stroke-width="3" fill="none"/>
+        </g>
+        <path d="M70 150L120 96H196L250 150" fill="none" stroke="var(--tail)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M120 96L150 150H196" fill="none" stroke="var(--tail)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M104 92C112 70 150 64 190 76L204 96H112Z" fill="var(--accent)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M84 84C96 80 112 82 126 88L118 100H78Z" fill="var(--ink)"/>
+        <path d="M196 96L236 62H262" fill="none" stroke="var(--ink)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M250 150L236 62" stroke="var(--muted)" stroke-width="8" stroke-linecap="round"/>
+        <rect x="140" y="122" width="52" height="30" rx="8" fill="var(--ink)"/>
+        <circle cx="256" cy="58" r="10" fill="var(--accent)" stroke="var(--ink)" stroke-width="4"/>
+      </svg>
+    </button>
+  </section>
+
+  <section class="shop">
+    <h2>Покращення</h2>
+    <button class="item" id="buyTap">
+      <span class="ico" aria-hidden="true">🔥</span>
+      <span class="txt"><span class="name">Турбо</span><br><span class="desc">+1 токен за кожен тап</span><br><span class="lvl" id="lvlTap"></span></span>
+      <span class="cost" id="costTap"></span>
+    </button>
+    <button class="item" id="buyAuto">
+      <span class="ico" aria-hidden="true">⚙️</span>
+      <span class="txt"><span class="name">Двигун</span><br><span class="desc">+1 токен щосекунди сам</span><br><span class="lvl" id="lvlAuto"></span></span>
+      <span class="cost" id="costAuto"></span>
+    </button>
+  </section>
+
+  <button class="reset" id="reset">Почати спочатку</button>
+</main>
+
+<script>
+(function () {
+  var KEY = "moto-clicker-v1";
+  var state = { score: 0, tapLvl: 1, autoLvl: 0 };
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && typeof s.score === "number") state = { score: s.score, tapLvl: s.tapLvl || 1, autoLvl: s.autoLvl || 0 };
+      }
+    } catch (e) {}
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function costTap() { return Math.round(30 * Math.pow(1.6, state.tapLvl - 1)); }
+  function costAuto() { return Math.round(80 * Math.pow(1.7, state.autoLvl)); }
+  function fmt(n) { return Math.floor(n).toLocaleString("uk-UA"); }
+
+  var el = {
+    score: document.getElementById("score"),
+    perTap: document.getElementById("perTap"),
+    perSec: document.getElementById("perSec"),
+    moto: document.getElementById("moto"),
+    buyTap: document.getElementById("buyTap"),
+    buyAuto: document.getElementById("buyAuto"),
+    costTap: document.getElementById("costTap"),
+    costAuto: document.getElementById("costAuto"),
+    lvlTap: document.getElementById("lvlTap"),
+    lvlAuto: document.getElementById("lvlAuto"),
+    reset: document.getElementById("reset")
+  };
+
+  function render() {
+    el.score.textContent = fmt(state.score);
+    el.perTap.textContent = state.tapLvl;
+    el.perSec.textContent = state.autoLvl;
+    el.costTap.textContent = fmt(costTap());
+    el.costAuto.textContent = fmt(costAuto());
+    el.lvlTap.textContent = "рівень " + state.tapLvl;
+    el.lvlAuto.textContent = "рівень " + state.autoLvl;
+    el.buyTap.disabled = state.score < costTap();
+    el.buyAuto.disabled = state.score < costAuto();
+  }
+
+  function popup(x, y, text) {
+    var p = document.createElement("div");
+    p.className = "pop";
+    p.textContent = text;
+    p.style.left = (x - 10) + "px";
+    p.style.top = (y - 20) + "px";
+    document.body.appendChild(p);
+    setTimeout(function () { p.remove(); }, 800);
+  }
+
+  function tap(e) {
+    state.score += state.tapLvl;
+    var x = e.clientX || window.innerWidth / 2;
+    var y = e.clientY || window.innerHeight / 2;
+    popup(x, y, "+" + state.tapLvl);
+    el.moto.classList.remove("hit");
+    void el.moto.offsetWidth;
+    el.moto.classList.add("hit");
+    if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
+    render();
+  }
+
+  el.moto.addEventListener("pointerdown", tap);
+  el.moto.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      var r = el.moto.getBoundingClientRect();
+      tap({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 3 });
+    }
+  });
+
+  el.buyTap.addEventListener("click", function () {
+    var c = costTap();
+    if (state.score >= c) { state.score -= c; state.tapLvl += 1; save(); render(); }
+  });
+  el.buyAuto.addEventListener("click", function () {
+    var c = costAuto();
+    if (state.score >= c) { state.score -= c; state.autoLvl += 1; save(); render(); }
+  });
+  el.reset.addEventListener("click", function () {
+    if (confirm("Скинути весь прогрес?")) {
+      state = { score: 0, tapLvl: 1, autoLvl: 0 };
+      save(); render();
+    }
+  });
+
+  setInterval(function () {
+    if (state.autoLvl > 0) { state.score += state.autoLvl; render(); }
+  }, 1000);
+  setInterval(save, 3000);
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
